@@ -1,0 +1,207 @@
+-= 26.03.2019 =-
+
+typedef struct tagtngANIM
+{
+  . . .
+  tngSUBSYSTEM_RENDER;
+  . . .
+} tngANIM;
+
+typedef struct tagtngSUBSYSTEM_RENDER
+{
+  VOID (*TrgCreate)( INT W, INT H );
+  VOID (*Trg)( INT W, INT H );
+  VOID (*Trg)( INT W, INT H );
+} tngSUBSYSTEM_RENDER;
+
+Render:
+
+RndBase:
+VOID TNG_RndInit( HWND hWnd )
+{
+  OpenGL init: setup rendering context,
+  Setup default values
+  
+  TNG_RndShdInit();
+  TNG_RndResInit();
+  TNG_RndTrgInit();
+  TNG_RndLightInit();
+  
+}
+VOID TNG_RndProjSet( VOID )
+{
+  -//-
+}
+VOID TNG_RndResize( INT W, INT H )
+{
+  FrameW = W;
+  FrameH = H;
+  . . .
+}
+VOID TNG_RndCamSet( VEC Loc, VEC At, VEC Up1 )
+{
+  -//-
+}
+VOID TNG_RndStartDefer( VOID )
+{
+  TNG_TrgDeferStart();
+}
+VOID TNG_RndStart( VOID )
+{
+  Reload shader,
+  Clear frame.
+}
+VOID TNG_RndClose( VOID )
+{
+  ResClose();
+  TrgClose();
+}
+VOID TNG_RndEnd( VOID )
+{
+  glFinish();
+  TNG_RndTrgEnd();
+}
+VOID TNG_RndCopyFrame( HDC hDC )
+{
+  SwapBuffers(TNG_hRndDC);
+}
+
+Trg:
+VOID SK4_RndTrgCreate( INT W, INT H )
+{
+}
+VOID SK4_RndTrgInit( VOID )
+{
+  TNG_RndPrimCreate(&TNG_RndTrgPrim, TNG_PRIM_POINTS, , 1, NULL, 0);
+
+  TNG()->TrgCreate = TNG_RndTrgCreate(W, H);
+}
+
+VOID SK4_RndTrgFree( VOID )
+{
+  -//-
+}
+
+VOID SK4_RndTrgClose( VOID )
+{
+  SK4_RndPrimFree(&SK4_RndTrgPrim);
+  SK4_RndTrgFree();
+}
+
+VOID SK4_RndTrgResize( INT W, INT H )
+{
+  SK4_RndTrgFree();
+  glClearColor(0.3, 0.5, 0.7, 0);
+  SK4_RndTrgCreate(Buf);
+}
+
+VOID SK4_RndTrgStart( VOID )
+{
+  -//-
+}
+
+VOID SK4_RndTrgDeferStart( VOID )
+{
+  -//-
+  SK4_RndPrimDraw(???);
+}
+
+VOID SK4_RndTrgEnd( VOID )
+{
+  -//-
+  SK4_RndPrimDraw(???);
+  glFinish();
+}
+
+................
+  \Render
+    tng_rndbase.c
+    tng_rndtrg.c  
+................
+
+
+target_descr[] =
+{
+  {TNG_TARGET_COLOR, TNG_TEX_FMT_RGB32F},
+  {TNG_TARGET_COLOR, TNG_TEX_FMT_RGB32F},
+  {TNG_TARGET_COLOR, TNG_TEX_FMT_RGB32F},
+  {TNG_TARGET_COLOR, TNG_TEX_FMT_RGB32F},
+  {TNG_TARGET_COLOR, TNG_TEX_FMT_RGB32F},
+  {TNG_TARGET_COLOR, TNG_TEX_FMT_RGB32F},
+  {TNG_TARGET_COLOR, TNG_TEX_FMT_RGB32F},
+  {TNG_TARGET_DEPTH, TNG_TEX_FMT_DEPTH24},
+  {TNG_TARGET_END, 0},
+  {TNG_TARGET_RENDER_DEPTH, 0},
+  {TNG_TARGET_RENDER_STENCIL, 0},
+  {TNG_TARGET_END, 0},
+}
+
+target_descr[] =
+{
+  {TNG_TARGET_END, 0},
+  {TNG_TARGET_RENDER_DEPTH, 0},
+  {TNG_TARGET_END, 0},
+}
+
+target_descr[] =
+{
+  {TNG_TARGET_DEPTH, TNG_TEX_FMT_DEPTH24},
+  {TNG_TARGET_END, 0},
+  {TNG_TARGET_END, 0},
+}
+
+target_descr = "CA(RGBA32F)x6,RB(Depth,Stencil)";
+target_descr = "CD(D24)";
+
+==========================================================Render pipline
+
+
+
+static VOID TNG_RenderPipelineStart( VOID )
+{
+  glEnable(GL_DEPTH_TEST);
+  glBindFramebuffer(GL_FRAMEBUFFER, TNG()->TargetFBO);
+  glClearColor(0.3, 0.5, 0.7, 0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+} /* End of 'TNG_RenderPipelineStart' function */
+
+/* FBO defer start function.
+ * ARGUMETS: None.
+ * RETURNS: None.
+ */
+static VOID TNG_RenderPipelineDeferStart( VOID )
+{
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glClearColor(0.3, 0.5, 0.7, 0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  ///TNG()->LightsRedraw();
+  ///TNG()->PrimDraw(TNG_RndTargetPrim, MatrIdentity());
+} /* End of 'TNG_RnderPipelineDeferStart' function */
+
+/* Render target finish frame render function.
+ * ARGUMENTS: None.
+ * RETURNS: None.
+ */
+static VOID TNG_RenderPipelineEnd( VOID )
+{
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glClearColor(0.3, 0.5, 0.7, 0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  ///TNG()->PrimDraw(TNG_RndTargetPrim, MatrIdentity());
+  glFinish();
+} /* End of 'TNG_RnderPipelineEnd' function */
+
+/* Target subsystem initilization function. 
+ * ARGUMENTS: None.
+ * RETURNS: None.
+ */
+
+VOID TNG_SubsystemPipelineInit( VOID )
+{
+  TNG()->PipelineStart = TNG_RenderPipelineStart;
+  TNG()->PipelineDeferStart = TNG_RenderPipelineDeferStart;
+  TNG()->PipelineEnd = TNG_RenderPipelineEnd; 
+} /* End of 'TNG_RnderPipelineEnd' function */
+
+

@@ -1,0 +1,88 @@
+-= 25.03.2019 =-
+
+!!! Samples: !!!
+
+Usage:
+Unit:
+  VOID Render( tngUNIT_ABC *Uni, tngANIM *Ani )
+  {
+    Ani->Draw(Uni->Car);
+  }
+
+!!!
+typedef struct
+{
+  FLT X, Y, Z;
+} ABC;
+
+typedef struct
+{
+  ABC;
+} DEF;
+. . .
+DEF p;
+
+p.X = 30.47;
+
+compare with:
+typedef struct
+{
+  ABC q;
+} DEF;
+. . .
+DEF p;
+
+p.q.X = 30.47;
+
+Usage in TNG:
+
+typedef struct tagtngUNIT
+{
+  VOID (*Render)( tngUNIT *Uni, tngANIM *Ani );
+  VOID (*Response)( tngUNIT *Uni, tngANIM *Ani );
+} tngUNIT;
+. . .
+COW.C
+typedef struct tagtngUNIT_COW
+{
+  tngUNIT;
+  VEC Pos;
+} tngUNIT_COW;
+
+Pathes:
+
+\SRC
+  \Utils
+  \Stock
+  \Math
+  \Topology
+  \???
+  \Animation
+    \Timer
+    \WindowDepended
+    \InputSystem
+    \Render
+      \Lights
+      \Materials
+      \Primitives
+      \Textures
+      \Shaders
+      \???
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

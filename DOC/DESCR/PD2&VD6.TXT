@@ -1,0 +1,116 @@
+-= 26.03.2019 =-
+
+Usage:
+Light:
+  /* Light representation type */
+  typedef struct tagtngLIGHT
+  {
+    tngLIGHT_TYPE type; /* Light type */
+    VEC
+      Pos,              /* Position of point & spot light types */
+      Dir,              /* Direction of directional and spot light */
+      Color,            /* Color of light */
+      Att;              /* Attenuation coefficients: CC, CL, CQ */
+    VEC2
+      CutOffAngle,      /* Angle to spotlight */
+      CutOffDir;        /* Direction of spot and point light */
+  } tngLIGHT;
+
+  static tngPRIM TNG_RndLightPrim;
+  INT TNG_RndLightsSize;
+
+  /* Light sources draw shaders */
+  static INT
+    TNG_RndLightShdAmbient, /* Shader for ambient light type */
+    TNG_RndLightShdPoint,   /* Shader for point light type */
+    TNG_RndLightShdDir,     /* Shader for directional light type */
+    TNG_RndLightShdSpot;    /* Shader for spot light type */ 
+
+  VOID TNG_LightInit( tngANIM *Ani )
+  {
+    UINT draw_buffer = GL_COLOR_ATTACHMENT0;
+    Ani->PrimCreate(&TNG_RndLightPrim, TNG_PRIM_POINTS, dummy);
+    Ani->AddShader(TNG_RndLightShdAmbient, Path);
+    Ani->AddShader(TNG_RndLightShdPoint, Path);
+    Ani->AddShader(TNG_RndLightShdDir, Path);
+    Ani->AddShader(TNG_RndLightShdSpot, Path);
+    Ani->AddShader(TNG_RndShadowShd, Path);
+  }
+
+  VOID TNG_LightsClose( VOID )
+  {
+    Ani->PrimFree(&TNG_RndLightPrim);
+    TNG_Stock->Light->Clear();
+  }
+  
+  /* Light add to stock function. 
+   * ARGUMENTS:
+   *   - description of light:
+   *     CHAR *Descr;
+   * RETURNS:
+   *   (UINT) Light number in stock.
+   */
+  UINT TNG_LightAdd( CHAR *Descr )
+  {
+    tngLIGHT *Lig;
+    Parser of string to Lig Descr /* Sample string format: "LightType(first letter of name) P:(x, y, z) D:(x, y, z) C:(r, g, b) A:(1, 0, 0) CA:(0, 0) CD:(5, 10)" */
+    TNG_Stock->Light->Add(Lig);
+    TNG_RndLightsSize++;
+  }
+  
+  VOID TNG_RndLightRedraw( tngANIM *Ani )
+  {
+    UINT ShadersId[] = 
+    {
+      TNG_RndLightShdAmbient,
+      TNG_RndLightShdPoint,
+      TNG_RndLightShdDir,
+      TNG_RndLightShdSpot,
+    };
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_ONE, GL_ONE);
+    glDepthMask(FALSE);
+    glDisable(GL_DEPTH_TEST);
+    for (...;... < TNG_RndLightsSize; ...)
+    {
+      tngLIGHT *Lig = TNG_Stock->Lights->Store[...];
+      
+      ProgId = TNG_Stock->Shaders->Store[ShadersId[Lig->Type]];
+      Binding global variables to shader with ProgId 
+    }
+    for (...; ... < TNG_RND_TRG_NUM_OF_ATTACHMENTS; ...)
+    {
+      glActiveTexture(GL_TEXTURE0 + ...);
+      glBindTexture(GL_TEXTURE_2D, TNG_Stock->Textures->Store[...].TexId);
+    }
+    Binding light structure to shader
+    switch (Lig->type)
+    {
+    case TNG_LIGHT_AMBIENT:
+    case TNG_LIGHT_DIR:
+    case TNG_LIGHT_SPOT:
+      glBindVertexArray(TNG_RndLightPrim.VA);
+      glDrawArrays(GL_POINTS, 0, 1);
+      break;
+    case TNG_LIGHT_POINT:
+      glBindVertexArray(TNG_RndLightPrim.VA);
+      glPatchParameteri(GL_PATCH_VERTICES, 1);
+      glDrawArrays(GL_PATCHES, 0, 1);
+      break;
+    }
+    glEnable(GL_DEPTH_TEST);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(TRUE);
+    glUseProgram(0);
+  } 
+
+  
+
+
+
+
+tngARGS Params;
+
+Params = TNG_Scanner(Str);
+
+

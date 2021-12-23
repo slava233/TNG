@@ -1,0 +1,282 @@
+!! Added geometry handle functions
+#include "..\tng.h"
+
+#include "..\tng_def.h"
+
+
+/* Geometry representative type */
+typedef struct tagtngGeom
+{
+  tngPRIM *Prims;                                /* Primitive massive */
+  INT NumOfPrims;                                /* Num of primitives */
+  MATR Trans;                                    /* Translate matrix */
+  VOID (*Init)( tngGeom *Geom );                 /* initialization function */
+  VOID (*Load)( tngGeom *Geom, CHAR *FileName ); /* loading G3DM function */
+  VOID (*Draw)( tngGEOM *Geom, MATR World );     /* Drawng geom object function */
+  VOID (*Free)( tngGEOM *Geom );                 /* Free geom object function */
+} tngGeom;
+
+/* G3DM loading function.
+ * ARGUMENTS:
+ *   - Geometry :
+ *       tngGEOM *Geom;
+ *   - File name :
+ *       CHAR *FileName;
+ * RETURNS: None.
+ */
+VOID Load( tngGeom *Geom, CHAR *FileName )
+{
+  FILE *F;
+  INT p, m, t, mtl_start, txt_start;
+  DWORD Sign;
+  DWORD NumOfPrims;
+  DWORD NumOfMaterials;
+  DWORD NumOfTextures;
+
+  if ((F = fopen(FileName, "rb")) == NULL)
+    return FALSE;
+
+  if (fread(&Sign, 4, 1, F) != 1 ||
+      Sign != *(DWORD *)"G3DM" ||
+      fread(&NumOfPrims, 4, 1, F) != 1 ||
+      fread(&NumOfMaterials, 4, 1, F) != 1 ||
+      fread(&NumOfTextures, 4, 1, F) != 1 ||
+      !Geom->Create())
+  {
+    fclose(F);
+    return FALSE;
+  }
+  for (p = 0; p < NumOfPrims; p++)
+  {
+    DWORD NumOfVertexes;
+    DWORD NumOfFacetIndexes;
+    DWORD MtlNo;
+    tngVERTEX *V;
+    INT *I, size, i;
+    static CHAR *Buf;
+
+    fread(&NumOfVertexes, 4, 1, F);
+    fread(&NumOfFacetIndexes, 4, 1, F);
+    fread(&MtlNo, 4, 1, F);
+
+    size2 = sizeof(VEC) * 2 + sizeof(VEC2) + sizeof(VEC4);
+    size = size2 * NumOfVertexes + sizeof(INT) * NumOfFacetIndexes;
+
+    if ((V = malloc(size)) == NULL)
+    {
+      Geom->Free();
+      fclose(F);
+      return FALSE;
+    }
+    memset(V, 0, size);
+    I = (INT *)(V + NumOfVertexes);
+    
+    Buf = malloc(size);
+    for (i = 0; i < NumOfVertexes; i++)
+    {
+      fread(Buf + i * size2, 1, size2, F);
+    }
+
+    Geom->Prims[p]->Create(&Geom->Prims[p], Format("f3i1f1"), Buf, NumOfVertexes, &Geom->Prims[p].Type, I, NumOfFacetIndexes);
+    Geom->Prims[p].MtlNo = MtlNo;
+    Geom->Prims[p].PrimNo = TNG_RndPrimNumber++;
+    free(Buf);
+  }
+
+  /* Materials */
+  mtl_start = TNG_RndMaterialsSize;
+  for (m = 0; m < NumOfMaterials; m++)
+  {
+    tngMATERIAL mtl = {0};
+    CHAR ShaderString[300]; /* Additional shader information */
+    DWORD Shader = 0;       /* Shader number (uses after load into memory) */
+
+    fread(&mtl, sizeof(tngMATERIAL) - sizeof(INT), 1, F);
+    fread(ShaderString, 1, 300, F);
+    fread(&Shader, 4, 1, F);
+
+    TNG_RndMaterialAdd(&mtl);
+  }
+  for (p = 0; p < NumOfPrims; p++)
+  {
+    Obj->Prims[p].MtlNo += mtl_start;
+  }
+
+  /* Textures */
+  txt_start = TNG_RndTexturesSize;
+  for (t = 0; t < NumOfTextures; t++)
+  {
+    CHAR Name[300]; /* Texture name */
+    DWORD W, H;     /* Texture image size in pixels */
+    DWORD C;        /* Texture image components (1-mono, 3-bgr or 4-bgra) */
+    BYTE *TextureImage;
+
+    fread(Name, 1, 300, F);
+    fread(&W, 4, 1, F);
+    fread(&H, 4, 1, F);
+    fread(&C, 4, 1, F);
+    if ((TextureImage = malloc(W * H * C)) != NULL)
+    {
+      fread(TextureImage, C, W * H, F);
+      TNG_RndTextureAdd(Name, W, H, TextureImage);
+      free(TextureImage);
+    }
+  }
+  for (m = 0; m < NumOfMaterials; m++)
+    for (t = 0; t < 8; t++)
+      if (TNG_RndMaterials[m + mtl_start].Tex[t] != -1)
+        TNG_RndMaterials[m + mtl_start].Tex[t] += txt_start;
+
+  fclose(F);
+  return TRUE;
+} /* End of 'Load' function */
+
+/* Draw geom object function.
+ * ARGUMENTS:
+ *   - Geometry :
+ *       tngGEOM *Geom;
+ *   - Matrix :
+ *       MATR World;
+ * RETURNS: None.
+ */
+VOID Draw( tngGEOM *Geom, MATR World )
+{
+  INT i, mtl_no;
+  MATR M = MatrMulMatr(Obj->Trans, World);
+
+  TNG_RndShaderAddOn0 = Geom->NumOfPrims;
+
+  /* Draw non transparent primitives */
+  for (i = 0; i < Geom->NumOfPrims; i++)
+  {
+    TNG_RndShaderAddOn1 = i;
+    mtl_no = Geom->Prims[i].MtlNo;
+    if (mtl_no < 0 || mtl_no >= TNG_RndMaterialsSize)
+      mtl_no = 0;
+    if (TNG_RndMaterials[mtl_no].Trans == 1)
+      TNG_PrimDraw(&Geom->Prims[i], M);
+  }
+
+  /* Draw transparent back faced primitives */
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_FRONT);
+  for (i = 0; i < Obj->NumOfPrims; i++)
+  {
+    TNG_RndShaderAddOn1 = i;
+    mtl_no = Geom->Prims[i].MtlNo;
+    if (mtl_no < 0 || mtl_no >= TNG_RndMaterialsSize)
+      mtl_no = 0;
+    if (TNG_RndMaterials[mtl_no].Trans != 1)
+      TNG_RndPrimDraw(&Geom->Prims[i], M);
+  }
+
+  /* Draw transparent front faced primitives */
+  glCullFace(GL_BACK);
+  for (i = 0; i < Geom->NumOfPrims; i++)
+  {
+    TNG_RndShaderAddOn1 = i;
+    mtl_no = Geom->Prims[i].MtlNo;
+    if (mtl_no < 0 || mtl_no >= TNG_RndMaterialsSize)
+      mtl_no = 0;
+    if (TNG_RndMaterials[mtl_no].Trans != 1)
+      TNG_RndPrimDraw(&Geom->Prims[i], M);
+  }
+  glDisable(GL_CULL_FACE);
+}
+
+
+VOID Init( tngGEOM *Geom )
+{
+  memset(Geom, 0, sizeof(tngGeom));
+  Geom->Trans = MatrIdentity(); 
+} /* End of 'Init' function */
+
+/* Free geom object function.
+ * ARGUMENTS:
+ *   - Geometry :
+ *       tngGEOM *Geom;
+ * RETURNS: None.
+ */
+VOID Free( tngGeOM *Geom )
+{
+  if (Geom->Prims != NULL)
+  {
+    INT i;
+
+    for (i = 0; i < Geom->NumOfPrims; i++)
+      PrimFree(&Geom->Prims[i]);
+    free(Geom->Prims);
+  }
+  memset(Geom, 0, sizeof(tngGeom));
+} /* End of 'Free' function */
+
+/* END OF 'tng_topology.c' FILE  */
+
+tngTOPO Sphere;
+
+Ani->TopoCreateSphere(&Sphere, VecSet1(0), 1);
+Ani->TopoCreateGrid(&Sphere, VecSet1(0), 1);
+
+tngPRIM *sph = Ani->PrimCreateFromTopo(&Sphere);
+
+Ani->PrimDraw(sph, MatrIdentoty());
+
+-= 28.03.2019 =-
+
+tngTOPO topo;
+tngTOPO_FMT topo_fmt[] =
+{
+  TNG_TOPO_FMT_POSITION,
+  TNG_TOPO_FMT_TEXTURE_COORD,
+  TNG_TOPO_FMT_NORMAL,
+  TNG_TOPO_FMT_COLOR4,
+  TNG_TOPO_FMT_TANGENT,
+  TNG_TOPO_FMT_BITANGENT
+  TNG_TOPO_FMT_END
+};
+tngPRIM *prim;
+
+Ani->TopoCreateSphere(&topo, topo_fmt, VecSet(0), 1, 30, 18);
+prim = Ani->PrimCreateFromTopo(&topo);
+Ani->TopoFree(&topo);
+
+
+TopoCreate***
+  !!! FromFileG3DM
+  Sphere
+  Plane
+  Cube
+  Torus
+  Cylinder
+
+  Plathon bodies
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

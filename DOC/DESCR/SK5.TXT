@@ -1,0 +1,78 @@
+-= 26.03.2019 =-
+
+Pathes:
+
+\SRC
+  \Animation
+    - tng_anim.h
+    - tng_anim.c
+    - tng_unit.c
+    - tng_unit.h
+    - tng_defered_anim.c
+  \Units
+    - tng_unit_set.c
+
+tng_anim.h:
+| * Declaration from "tng_anim.c", "tng_defered_anim.c" files;
+| * Declaration structures, like tngUNIT and tngANIM (firstly, only this two structures);
+| * Declaration function AnimInit and AnimRun 
+
+tng_anim.c:
+| * functions:
+|    > VOID TNG_AnimInit( VOID );
+|    > VOID TNG_AnimClose( VOID );
+|    > VOID TNG_AnimResize( VOID );
+|    > VOID TNG_AnimCopyFrame( VOID );
+|    > VOID TNG_AnimRender( VOID );
+|    > BOOL TNG_AnimDoExit( VOID );
+|    > VOID TNG_AnimRun( VOID );
+|   
+|
+|  --> Starting ideology: declaration base arrays with pointer to metods
+|                         and usage them in Animation system metods
+|          For example:
+|          |  VOID (*Init[])( VOID )                              |           
+|          |  {                                                   |             
+|          |    TNG_TrgInit,                                      |
+|          |    ...                                               |            
+|          |  };                                                  |            
+|          |                                                      |
+|          | VOID AnimInit( VOID )                                |
+|          | {                                                    |
+|          |   INT i, size = sizeof(Init) / sizeof(Init[0]);      |
+|          |                                                      |
+|          |   for (i = 0; i < size; i++)                         |
+|          |     Init[i]();                                       |
+|          | }                                                    |
+
+tng_unit.h:
+| * Declaration allocate memory function;
+| * Declaration functions initialization of sample units;
+
+tng_unit.c:
+| * Dummy functions for initialize every unit;
+| * Function, which alocate memory for unit and put on base unit fields:
+|    > tngUNIT * TNG_UnitCreate( INT Size );
+
+tng_unit_set.c:
+| Supposed to make stock of units and maybe add every unit to this stock.
+| Interaction with units occurs through function tng_unit_set.c.
+
+tng_deffered_render.c
+| Supposed to make function (named like TNG_DefferedRender), which 
+| serves delayed output.
+                                                               
+                                                               
+Profile support:
+writing ".ini" file rules:
+1. Members loading module writing in the following way:
+   [_Name_Of_Module]
+2. Members record writing in the following way:
+   _Name_Of_Module$$$=*****,   $ - any symbol besides space-symbols, *** - any symbol;
+3. Next member writing in new string.
+
+UnitSet support:
+writing ".ini" file rules:
+1. Module named: [UnitSet]
+2. Members writing in the following way:
+   UnitSet$$$ = ****|*****|****...

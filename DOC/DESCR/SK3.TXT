@@ -1,0 +1,169 @@
+-= 29.03.2019 =-
+
+Usage:
+
+Primitive type:
+
+typedef enum tagtngPRIM_TYPE
+{
+  TNG_PRIM_POINTS,              /* Points */
+  TNG_PRIM_LINES,               /* Lines */
+  TNG_PRIM_LINE_STRIP,          /* Lines strip */
+  TNG_PRIM_TRIMESH,             /* Triangles */
+  TNG_PRIM_STRIP,               /* Triangles strip */
+  TNG_PRIM_PATCH,               /* Patches */
+  TNG_PRIM_LINE_STRIP_ADJACENCY /* Lines strip adjacency */
+} tngPRIM_TYPE;
+
+Primitive structure:
+
+struct tagtngPRIM
+{
+  tngPRIM_TYPE Type; /* Primitive type */
+  tngMATERIAL *Mtl;  /* Primitive material */
+  MATR Trans;        /* Additional transformation matrix */
+  INT
+    VA, IBuf, VBuf,  /* OpenGL vertex array, vertex buffer and index buffer */
+    NumOfI;          /* Number of indexes/vertexes/patches points */
+  VEC
+    Min,             /* Minimum vector */ /* auto determination in creating primitive */
+    Max,             /* Maximum vector */
+    Center;          /* Center vector */
+};
+
+Deferred primitive structure:
+
+typedef struct tagtngPRIM_DEFERRED
+{
+  tngPRIM *Prim;  /* Deferred primitive reference */
+  MATR World;     /* World matrix */
+  CAMERA Camera;  /* Used camera */
+} tngPRIM_DEFERRED;
+
+Create primitive:
+
+tngPRIM * TNG_PrimCreate( tngPRIM_TYPE Type,     /* primitive type */
+                          CHAR *VertexFormat,    /* data format  */
+                          VOID *V,               /* data */
+                          INT NumOfV,            /* vertexes number */
+                          INT *Ind,              /* indexes */
+                          INT NumOfI )           /* indexes number */
+
+Delete primitive:
+
+VOID TNG_PrimDelete( tngPRIM *Prim )
+{
+  if (Prim->VA != 0)
+  {
+    glBindVertexArray(Prim->VA);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    glDeleteVertexArrays(1, &Prim->VA);
+  }
+  if (Prim->VBuf != 0)
+    glDeleteBuffers(1, &Prim->VBuf);
+  if (Prim->IBuf != 0)
+    glDeleteBuffers(1, &Prim->IBuf);
+}
+
+Free primitive:
+
+VOID TNG_PrimFree( tngPRIM *Prim )
+{
+  StockRemove(Prim);
+}
+
+Draw primitive:
+
+VOID TNG_PrimDrawLocal( tngPRIM *Prim, MATR World, CAMERA Camera )
+{
+  INT
+    loc,
+    PrimType =
+      Prim->Type == TNG_PRIM_POINTS ? GL_POINTS :
+      Prim->Type == TNG_PRIM_LINES  ? GL_LINES :
+      Prim->Type == TNG_PRIM_STRIP  ? GL_TRIANGLE_STRIP :
+      Prim->Type == TNG_PRIM_LINE_STRIP  ? GL_LINE_STRIP :
+      Prim->Type == TNG_PRIM_LINE_STRIP_ADJACENCY ? GL_LINE_STRIP_ADJACENCY :
+      Prim->Type == TNG_PRIM_PATCH ? GL_PATCHES :
+      Prim->Type == TNG_PRIM_TRIMESH  ? GL_TRIANGLES : GL_POINTS;
+  MATR 
+     W = MatrMulMatr(Prim->Trans, World),
+     N = MatrTranspose(MatrInverse(W)), 
+     WVP = MatrMulMatr(W, Camera.VP);
+  UINT ProgId;
+  VEC v;
+
+  glLoadMatrixf(WVP.M[0]);
+
+  ProgId = TNG()->MaterialApply(Prim->Mtl);
+
+  /* Setup transform coefficients */
+  if ((loc = glGetUniformLocation(ProgId, "MatrWVP")) != -1)
+    glUniformMatrix4fv(loc, 1, FALSE, WVP.M[0]);
+  if ((loc = glGetUniformLocation(ProgId, "MatrVP")) != -1)
+    glUniformMatrix4fv(loc, 1, FALSE, Camera.VP.M[0]);
+  if ((loc = glGetUniformLocation(ProgId, "MatrW")) != -1)
+    glUniformMatrix4fv(loc, 1, FALSE, W.M[0]);
+  if ((loc = glGetUniformLocation(ProgId, "MatrV")) != -1)
+    glUniformMatrix4fv(loc, 1, FALSE, Camera.ViewMatr.M[0]);
+  if ((loc = glGetUniformLocation(ProgId, "MatrN")) != -1)
+    glUniformMatrix4fv(loc, 1, FALSE, N.M[0]);
+  if ((loc = glGetUniformLocation(ProgId, "CamLoc")) != -1)
+    glUniform3fv(loc, 1, &Camera.Loc.X);
+  v = CamRight(&Camera);
+  if ((loc = glGetUniformLocation(ProgId, "CamRight")) != -1)
+    glUniform3fv(loc, 1, &v.X);
+  v = CamUp(&Camera);
+  if ((loc = glGetUniformLocation(ProgId, "CamUp")) != -1)
+    glUniform3fv(loc, 1, &v.X);
+  v = CamDir(&Camera);
+  if ((loc = glGetUniformLocation(ProgId, "CamDir")) != -1)
+    glUniform3fv(loc, 1, &v.X);
+  if ((loc = glGetUniformLocation(ProgId, "CamProjDist")) != -1)
+    glUniform1f(loc, Camera.ProjDist);
+  if ((loc = glGetUniformLocation(ProgId, "CamProjSize")) != -1)
+    glUniform1f(loc, Camera.ProjSize);
+  if ((loc = glGetUniformLocation(ProgId, "Time")) != -1)
+    glUniform1f(loc, TNG()->Time);
+  if ((loc = glGetUniformLocation(ProgId, "FrameW")) != -1)
+    glUniform1f(loc, TNG()->FrameW);
+  if ((loc = glGetUniformLocation(ProgId, "FrameH")) != -1)
+    glUniform1f(loc, TNG()->FrameH);
+
+  glBindVertexArray(Prim->VA);
+
+  if (Prim->Type == TNG_PRIM_PATCH)
+    glPatchParameteri(GL_PATCH_VERTICES, Prim->NumOfI);
+
+  if (Prim->IBuf != 0)
+  {
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, Prim->IBuf);
+    glDrawElements(PrimType, Prim->NumOfI, GL_UNSIGNED_INT, NULL);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  }
+  else
+    glDrawArrays(PrimType, 0, Prim->NumOfI);
+
+  glUseProgram(0);
+
+  glBindVertexArray(0);
+}
+
+VOID TNG_PrimDraw( tngPRIM *Prim, MATR World )
+{
+  TNG_PrimDrawLocal(Prim, World, TNG()->Camera); 
+}
+
+Deferr primitive:
+
+VOID TNG_PrimDrawDeferred( tngPRIM *Prim, MATR World )
+{
+  tngPRIM_DEFERRED DefPrim;
+
+  DefPrim.Prim = Prim;
+  DefPrim.World = World;
+  DefPrim.Camera = TNG()->Camera;
+
+  StockAdd(&TNG()->PrimitivesDeferred, &DefPrim);
+}

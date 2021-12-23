@@ -1,0 +1,289 @@
+-= 25.03.2019 =-
+
+!!! Stock: !!!
+Pathes:
+\SRC
+  \Stock
+
+===============================================
+Idea:
+
+All elements in one module stored in their stock. Stocks are divided into blocks.
+In blocks stored group of elements.
+
+Users create stock in their modules and use it.
+
+===============================================
+Interface:
+
+---------------------------------------------------------------------------------------------------
+Init and get access to your stock: STOCK_INIT(Type, Postfix for function)  
+Example: 
+STOCK *Units;
+Units = STOCK_UNIT(tngUNIT, Unit); --> StockInit(sizeof(tngUNIT *), StrategyFreeUnit, StrategyInitNewUnit);
+---------------------------------------------------------------------------------------------------
+Functions in stock:
+
+Update stock of elements: StockName.Start();
+Example:
+tngUNIT *U = Units.Start();
+
+Movement in stock: StockName.Next();
+Example:
+U = Units.Next();
+
+Get element by id: StockName.Get();
+Example:
+Materials.Get(i);
+
+---------------------------------------------------------------------------------------------------
+Stock free: StockFree(&Stock name);
+Example:
+StockFree(&Units);
+---------------------------------------------------------------------------------------------------
+ 
+===============================================
+Using:
+
+STOCK *Units;
+
+Init:
+Units = STOCK_INIT(tngUNIT, Unit);
+
+AnimRender:
+tngUNIT *U = Units.Start();
+
+while (U != NULL)
+{
+  U->Response(U, TNG());
+  U = Units.Next();
+}
+---------------------------
+tngMATERIAL *M;
+STOCK Materials;
+
+Materials = StockInit(tngMATERIAL, Material);
+
+for (i = 0; i < Materials.Size; i++)
+{
+  ... Materials.Get(i);
+}
+
+M = Materials.Start();
+while (M != NULL)
+{
+  . . .
+  M = Materials.Next();
+}
+. . .
+StockFree(&Materials);
+---------------------------
+
+-= 27.03.2019 =-
+
+tngSTR Name = TNG_Str("Material");
+sprintf(Buf, "%s", TNG_ToStr(Name));
+
+typedef struct tagtngMATERIAL
+{
+  tngSTR Name;
+  VEC Ka;
+} tngMATERIAL;
+
+STOCK Materials;
+
+STOCK_INIT(&Materials, tngMATERIAL);
+
+--> tngMATERIAL *Mtl = TNG_MaterialAdd("Cooper", "Ka(0.1)Kd(0)Ks(1)Texture('bin/textures/a.bmp','t.tga')Shader('cooper')");
+
+tngMATERIAL TNG_MaterialDefault =
+{
+  0,
+  {0.1, 0.1, 0.1},
+  . . .
+};
+
+tngMATERIAL * TNG_MaterialAdd( CHAR *Name, CHAR *Params )
+{
+  tngMATERIAL mtl = TNG_MaterialDefault, *res;
+  tngARGS Args;
+
+  mtl.Name = TNG_Str(Name);
+  Args = TNG_Scanner(Params); 
+  for (i = 0; i < Args.Size; i++)
+    if (Args.Param[i].Str == TNG_Str("Ka"))
+    {
+      if (Args.Param[i].SizeX == 1)
+        mtl.Ka = VecSet1(Args.Param[i].X[0]);
+      else
+        if (Args.Param[i].SizeX == 3)
+          mtl.Ka = VecSet(Args.Param[i].X[0], Args.Param[i].X[1], Args.Param[i].X[2]);
+    }
+    else if (Args.Param[i].Str == TNG_Str("Texture"))
+      for (t = 0; t < TNG_MATERIALS_TEX_MAX && t < Args.Param[i].SizeS; t++)
+        mtl.Tex[t] = TNG()->TextureAddFromFile(Args.Param[i].S[t]);
+    else if (Args.Param[i].Str == TNG_Str("Shader"))
+      mtl.Shd = TNG()->ShaderAdd(Args.Param[i].S[0]);
+  TNG_ArgsFree(&Args);
+
+  res = StockAdd(&Materials, &mtl);
+  return res;
+}
+
+SCAN *a = Scanner(...);
+
+
+"a(1, 'abc.tga')"
+
+------------------------------
+VOID TNG_MaterialApply( tngMATERIAL *Mtl )
+{
+  UING ProgId = TNG()->ShaderApply(Mtl->Shd);
+
+  if ((loc = glGetUniformLocation(ProgId, "Ka")) != -1)
+    glUniform3fv(...);
+  . . .
+}
+---------------------------------
+tngUNIT *U = StockStart(TNG()->Units);
+
+while (U != NULL)
+{
+  U->Response(U, TNG());
+  U = StockNext(U);
+}
+
+
+
+
+=============================================================================================
+=============================================
+План инициализации стока (если указатель на первый блок - NULL):
+ 
+  Выделить память под первый блок
+  Обналить указатель на следующий блок, первый свободный блок указывает на первый блок
+  Проинитить указатель на первый элемент и проинитить у него Prev и Next
+  Записать в его дату Item
+  Проинитить указатель на первый свободный элемент и проинитить у него Prev и Next 
+=============================================
+План инициализации блока (если остаток от деления size (+1) на NumOfElements - 0):
+
+  Выделить память под новый блок
+  Первый свободный блок - новый блок
+  Проинитить первый элемент (Prev уазывает на последний элемент предыдущего блока, Next - свободный элемент)
+  Записать в его дату Item
+  Проинитить указатель на первый свободный элемент и проинитить у него Prev и Next
+=============================================
+План инициализации элемента (остальные случаи):
+
+  Записать item в дату первого свободного элемента, изменить позже Next
+  Проинитить указатель на новый элемент добавлением к указателю на свободный элемент размера элемента
+  Проинитить у него Prev и Next
+  Сдвинуть первый свободный элемент
+
+
+/* Create new block and element */
+  STOCK_BLOCK *NewBlock = NULL;
+  STOCK_ELEMENT *NewElement = NULL,
+                *SaveElement = NULL;
+
+  /* Start stock init */
+  if (Stk->FirstBlock == NULL)
+  {
+    /* Start init blocks */
+    Stk->FirstBlock = malloc(Stk->SizeOfBlock);
+    Stk->FirstBlock->Next = NULL;
+    Stk->FirstFreeBlock = Stk->FirstBlock;
+
+    /* Start init elements */
+    Stk->FirstBlock->FirstBlockElement = (STOCK_ELEMENT *)((BYTE *)Stk->FirstBlock + sizeof(STOCK_BLOCK));
+    NewElement = (STOCK_ELEMENT *)((BYTE *)Stk->FirstBlock->FirstBlockElement + Stk->SizeOfElement);
+    Stk->FirstBlock->FirstBlockElement->Prev = NULL;
+    Stk->FirstBlock->FirstBlockElement->Next = NewElement;
+    NewElement->Prev = Stk->FirstBlock->FirstBlockElement;
+    NewElement->Next = NULL;
+    Stk->FirstBlock->FirstFreeBlockElement = NewElement;
+
+    /* Copy item to first element data */
+    memcpy(Stk->FirstBlock->FirstBlockElement->Data, Item, Stk->SizeOfItem);
+
+    /* Increment number of elements */
+    Stk->Size++;
+
+    return Stk->FirstBlock->FirstBlockElement->Data;
+  }
+  /* Init new block */
+  else if (Stk->Size % Stk->NumOfElements == 0)
+  {
+    NewBlock = malloc(Stk->SizeOfBlock);
+    NewBlock->Next = NULL;
+    
+    if (Stk->FirstBlock->Next == NULL)
+      Stk->FirstFreeBlock = NewBlock;
+    else
+      Stk->FirstFreeBlock->Next = NewBlock;
+
+    NewBlock->FirstBlockElement = (STOCK_ELEMENT *)((BYTE *)NewBlock + sizeof(STOCK_BLOCK));
+    NewBlock->FirstBlockElement->Prev = Stk->FirstFreeBlock->FirstFreeBlockElement;
+
+    NewElement = (STOCK_ELEMENT *)((BYTE *)NewBlock->FirstBlockElement + Stk->SizeOfElement);
+    NewBlock->FirstBlockElement->Next = NewElement;
+
+    /* Copy item to first new block element */
+    memcpy(Stk->FirstFreeBlock->FirstBlockElement->Data, Item, Stk->SizeOfItem);
+
+    NewElement->Prev = Stk->FirstFreeBlock->FirstBlockElement;
+    NewElement->Next = NULL;
+
+    NewBlock->FirstFreeBlockElement = NewElement;
+
+    /* Move pointer of free block */
+    Stk->FirstFreeBlock = Stk->FirstFreeBlock->Next;
+
+    /* Increment number of elements */
+    Stk->Size++;
+
+    return Stk->FirstFreeBlock->FirstBlockElement->Data;
+  }
+  /* Init new element */
+  else
+  {
+    memcpy(Stk->FirstFreeBlock->FirstFreeBlockElement->Data, Item, Stk->SizeOfItem);
+    SaveElement = Stk->FirstFreeBlock->FirstFreeBlockElement;
+
+    NewElement = (STOCK_ELEMENT *)((BYTE *)Stk->FirstFreeBlock->FirstFreeBlockElement + Stk->SizeOfElement);
+    NewElement->Prev = Stk->FirstFreeBlock->FirstFreeBlockElement;
+    NewElement->Next = NULL;
+
+    Stk->FirstFreeBlock->FirstFreeBlockElement->Next = NewElement;
+    Stk->FirstFreeBlock->FirstFreeBlockElement = Stk->FirstFreeBlock->FirstFreeBlockElement->Next;
+
+    /* Increment number of elements */
+    Stk->Size++;
+
+    return SaveElement->Data;
+  }
+
+Init:
+/* Init sizes */
+  Stk->SizeOfItem = SizeOfType;
+  Stk->SizeOfElement = SizeOfType + sizeof(STOCK_ELEMENT);
+  Stk->NumOfElements = (NumOfElements > 0 ? NumOfElements : 30);
+  Stk->SizeOfBlock = sizeof(STOCK_BLOCK) + Stk->SizeOfElement * Stk->NumOfElements;
+
+  /* Init delete method */
+  Stk->StrategyFree = StrategyFree;
+
+
+
+
+
+
+
+
+
+
+
+
+
+

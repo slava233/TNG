@@ -1,0 +1,140 @@
+-=25.03.2019=-
+
+/***
+ * Input structs
+ ***/
+
+/* Keyboard responce subsystem structure */
+typedef struct tagtngSUBSYSTEM_KEYB
+{
+  /* Keyboard variables */
+  BYTE
+    Keys[256],      /* Keys statement on current frame */
+    KeysOld[256],   /* Keys statement on previous frame */
+    KeysClick[256]; /* Is key pressed */
+
+  /* Keyboard responce function.
+   * ARGUMENTS: None;
+   * RETURNS: None.
+   */
+  VOID (*KeyboardResponce)( VOID );
+} tngSUBSYSTEM_KEYB;
+
+/* Mouse responce subsystem structure */
+typedef struct tagtngSUBSYSTEM_MOUSE
+{
+  /* Mouse variables */
+  INT
+    Mx, My, Mz,    /* Mouse axes */
+    Mdx, Mdy, Mdz; /* Delta mouse */
+
+  /* Mouse responce function.
+   * ARGUMENTS: None;
+   * RETURNS: None.
+   */
+  VOID (*MouseResponce)( VOID );
+} tngSUBSYSTEM_MOUSE;
+
+/* Joystick responce subsystem structure */
+typedef struct tagtngSUBSYSTEM_JS
+{
+  /* Joystick variables */
+  BYTE 
+    JBut[32],      /* Joystick keys statement on current frame */
+    JButOld[32],   /* Joystick keys statement on previous frame */
+    JButClick[32]; /* Is joystick key pressed */
+  INT JPov;                                  /* Joystick point-of-view control */
+  DBL JX, JY, JZ, JR;                        /* Joystick axes */
+
+  /* Joystick responce function.
+   * ARGUMENTS: None;
+   * RETURNS: None.
+   */
+  VOID (*TNG_JoystickResponce)( VOID );
+} tngSUBSYSTEM_JS;
+
+/* Input devices subsystem structure */
+typedef struct tagtngSUBSYSTEM_INPUT
+{
+  /* Keyboard structure */
+  union
+  {
+    tngSUBSYSTEM_KEYB;
+    tngSUBSYSTEM_KEYB Keyboard;
+  };
+
+  /* Mouse structure */
+  union
+  {
+    tngSUBSYSTEM_MOUSE;
+    tngSUBSYSTEM_MOUSE Mouse;
+  };
+
+  /* Joystick structure */
+  union
+  {
+    tngSUBSYSTEM_JS;
+    tngSUBSYSTEM_JS Joystick;
+  };
+} tngSUBSYSTEM_INPUT;
+
+Usage:
+Anim:
+  /* Animation system struct */
+  typedef struct
+  {
+    . . .
+    union
+    {
+      tngSUBSYSTEM_INPUT;                /* Input struct */
+      tngSUBSYSTEM_INPUT SubsystemInput;
+    };
+    . . .
+  } ANIM;
+
+  AnimRender:
+  - Input call
+
+Unit:
+  Control unit:
+  /* Control unit struct */
+  {
+    . . .
+    /* Input devices parameters */
+    FLT Rdx, Rdy, Rdz;        /* identity of rotate */
+    FLT Rx, Ry, Rz;           /* delta rotate */
+    INT Mx, My, Mz,           /* identity of mouse */
+        Mdx, Mdy, Mdz;        /* delta mouse */
+    DBL Jx, Jy, Jz, Jr;       /* identity of joystick */
+        Jdx, Jdy, Jdz, Jdr;   /* delta joystick */
+    . . .
+  } UNIT_CTRL;
+  - Change camera position by input devices (in UnitResponse)
+
+Main:
+  . . .
+  case WM_MOUSEWHEEL:
+    /* Mouse whell poll */
+
+Pathes:
+\SRC
+  \Main
+  \Animation
+  \Units
+    \Control unit
+
+/***
+ * Used buttons
+ ***/
+ Exit - Escape
+ Full screen window - Alt + Enter
+ Turn wire frame view - Shift + W
+ Make screenshot - Ctrl + Shift + S
+ Pause - P
+ Arrows - move object
+ W-S - move camera forward/back
+ A-D - move camera left/right
+ Q-E - move camera up/down
+ 4-6 on NumLock - move point of interest left/right
+ 8-2 on NumLock - move point of interest up/down
+ Page Up-Page Down - edit camera distance 

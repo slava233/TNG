@@ -1,0 +1,94 @@
+-= 26.03.2019 =-
+
++++'=== "Materials" ==='+++
+
+Materials structure:
+  -- Ka
+  -- Kd
+  -- Ks
+  -- Ph
+  -- Transparency  (!!! to check of needance of deffered lighting)
+  -- Shader id   <-- in stock of shaders' array
+  -- Massive of textures numbers
+
+We can store them in stock of materials' array (using ID in array) 
+
+Usage:
+  
+MaterialAdd(&mtl);   
+MaterialApply(MtlNo);
+...
+
+### FILES ###
+
+/* Also additional headers for compatibility with another resources (shaders, lightings, e.t.c.) */
+
+....................
+  \tng_rndres
+    tng_rndres.c
+    \tng_rndmtl
+      tng_rndmtl.c
+    \tng_rndshd
+      tng_rndshd.c
+    \tng_rndlig
+      tng_rndlig.c
+    \tng_rndtxt
+      tng_rndtxt.c
+....................
+
+INT RndMtlAdd( MATERIAL *mtl )
+{
+  /* Check if added */
+  if (1)
+    return; <-- Number in array in stock structure;
+
+  /* Add to array in stock structure */
+
+  return; <-- Number in array in stock strucure;
+}
+
+UINT RndMtlApply( INT MtlNo )
+{
+  INT loc, i;
+  UINT prg;
+  MATERIAL *mtl;
+
+  /* Correct material number */
+  if (MtlNo < 0 || MtlNo >= MaterialsSize)  /* From stock structure */
+    MtlNo = 0;
+  mtl = ...;                                /* From stock structure */
+
+  /* Correct shader number */
+  if (mtl->ShdNo < 0 || mtl->ShdNo >= AS4_RndShadersSize)
+    prg = Shaders[0].PrgNo;                 /* From stock structure */
+  else
+    prg = Materials[mtl->ShdNo].PrgNo;      /* From stock structure */
+
+  glUseProgram(prg);
+  
+  /* Applying to shaders */
+
+  /* Texture apply */
+  for (i = 0; i < 8; i++)
+  {
+    BOOL is = FALSE;
+    static CHAR TexName[] = "IsTexture0";
+
+    TexName[sizeof(TexName) - 2] = '0' + i;
+    glActiveTexture(GL_TEXTURE0 + i);
+    if (mtl->Tex[i] >= 0 && mtl->Tex[i] < RndTexturesSize)
+    {
+      is = TRUE;
+      glBindTexture(GL_TEXTURE_2D, RndTextures[mtl->Tex[i]].TexId);    /* From stock structure */
+    }
+    else
+      glBindTexture(GL_TEXTURE_2D, 0);
+    if ((loc = glGetUniformLocation(prg, TexName)) != -1)
+      glUniform1i(loc, is);
+  }
+  return prg; /* Number of shader */
+}
+
+
+
+  
